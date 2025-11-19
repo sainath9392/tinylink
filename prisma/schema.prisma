@@ -16,6 +16,7 @@ model Link {
   clicks        Int      @default(0)
   lastClickedAt DateTime?
   createdAt     DateTime @default(now())
-
+  userId        String?   // <--- MAKE SURE THIS LINE IS HERE
+  
   @@index([shortCode])
 }

@@ -12,24 +12,49 @@ interface LinkData {
 }
 
 export default function Home() {
-  // State for the list of links
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // State for the form
   const [url, setUrl] = useState("");
   const [customCode, setCustomCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [userId, setUserId] = useState("");
 
-  // 1. Fetch links when the page loads
+  // 1. Initialize User ID
   useEffect(() => {
-    fetchLinks();
+    let storedId = localStorage.getItem("tinylink_user_id");
+    if (!storedId) {
+      storedId =
+        Math.random().toString(36).substring(2) + Date.now().toString(36);
+      localStorage.setItem("tinylink_user_id", storedId);
+    }
+    setUserId(storedId);
   }, []);
 
-  async function fetchLinks() {
+  // 2. Polling Logic: Fetch data every 2 seconds
+  useEffect(() => {
+    if (!userId) return;
+
+    // Initial fetch (shows loading spinner)
+    fetchLinks(userId, true);
+
+    // Setup interval for background updates (no spinner)
+    const intervalId = setInterval(() => {
+      fetchLinks(userId, false);
+    }, 2000); // Check every 2000ms (2 seconds)
+
+    // Cleanup interval when user leaves page
+    return () => clearInterval(intervalId);
+  }, [userId]);
+
+  // Updated fetch function: accepts 'showLoading' parameter
+  async function fetchLinks(uid: string, showLoading = false) {
+    if (showLoading) setLoading(true);
+
     try {
-      const res = await fetch("/api/links");
+      const res = await fetch("/api/links", {
+        headers: { "x-user-id": uid },
+      });
       if (res.ok) {
         const data = await res.json();
         setLinks(data);
@@ -37,11 +62,10 @@ export default function Home() {
     } catch (err) {
       console.error("Failed to fetch links");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
-  // 2. Handle Form Submission (Create Link)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsSubmitting(true);
@@ -50,7 +74,10 @@ export default function Home() {
     try {
       const res = await fetch("/api/links", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+        },
         body: JSON.stringify({ url, shortCode: customCode || undefined }),
       });
 
@@ -61,10 +88,10 @@ export default function Home() {
       } else if (!res.ok) {
         setError(data.error || "Something went wrong.");
       } else {
-        // Success! Clear form and refresh list
         setUrl("");
         setCustomCode("");
-        fetchLinks();
+        // Immediate fetch to show new link
+        fetchLinks(userId, false);
       }
     } catch (err) {
       setError("Network error. Please try again.");
@@ -73,21 +100,20 @@ export default function Home() {
     }
   }
 
-  // 3. Handle Deletion (We will implement the API for this next)
   async function handleDelete(code: string) {
     if (!confirm("Are you sure you want to delete this link?")) return;
 
-    // Optimistic update (remove from UI immediately)
+    // Optimistic update: Remove it from screen immediately
     setLinks(links.filter((l) => l.shortCode !== code));
 
     await fetch(`/api/links/${code}`, { method: "DELETE" });
-    fetchLinks(); // Refresh to be sure
+    // Background fetch to ensure sync
+    fetchLinks(userId, false);
   }
 
   return (
     <main className="min-h-screen bg-gray-50 p-6 font-sans text-gray-900">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-extrabold text-blue-600 mb-2">
             TinyLink
@@ -95,10 +121,8 @@ export default function Home() {
           <p className="text-gray-600">Shorten your URLs with ease.</p>
         </header>
 
-        {/* Create Link Section */}
         <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
           <h2 className="text-lg font-semibold mb-4">Create a New Link</h2>
-
           <form
             onSubmit={handleSubmit}
             className="flex flex-col md:flex-row gap-4"
@@ -132,7 +156,6 @@ export default function Home() {
               {isSubmitting ? "Saving..." : "Shorten"}
             </button>
           </form>
-
           {error && (
             <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
               {error}
@@ -140,12 +163,10 @@ export default function Home() {
           )}
         </section>
 
-        {/* Links Table Section */}
         <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-lg font-semibold">Your Links</h2>
           </div>
-
           {loading ? (
             <div className="p-8 text-center text-gray-500">
               Loading links...
@@ -184,12 +205,15 @@ export default function Home() {
                       >
                         {link.originalUrl}
                       </td>
-                      <td className="p-4 text-center font-medium">
+                      {/* Key changes here: The clicks update automatically */}
+                      <td className="p-4 text-center font-medium bg-gray-50 rounded">
                         {link.clicks}
                       </td>
                       <td className="p-4 text-gray-500">
                         {link.lastClickedAt
-                          ? new Date(link.lastClickedAt).toLocaleDateString()
+                          ? new Date(link.lastClickedAt).toLocaleDateString() +
+                            " " +
+                            new Date(link.lastClickedAt).toLocaleTimeString()
                           : "-"}
                       </td>
                       <td className="p-4 text-right">
