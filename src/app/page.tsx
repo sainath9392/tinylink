@@ -140,7 +140,7 @@ export default function Home() {
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/50 border-b border-white/40 px-6 py-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-2 rounded-xl shadow-lg shadow-indigo-500/20">
+            <div className="bg-linear-to-br from-indigo-600 to-violet-600 text-white p-2 rounded-xl shadow-lg shadow-indigo-500/20">
               <Link2 className="w-5 h-5" />
             </div>
             <span className="text-xl font-bold tracking-tight text-slate-800">

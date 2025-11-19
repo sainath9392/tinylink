@@ -5,7 +5,6 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  // 1. AWAIT params to get the code safely
   const { code } = await params;
 
   const link = await prisma.link.findUnique({
@@ -27,5 +26,6 @@ export async function GET(
     })
     .catch((e) => console.error("Stats update failed", e));
 
-  return NextResponse.redirect(link.originalUrl);
+  // 👇 THIS IS THE CRITICAL CHANGE
+  return NextResponse.redirect(link.originalUrl, { status: 302 });
 }
