@@ -3,22 +3,20 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> }
 ) {
-  const code = params.code;
+  // 1. AWAIT params to get the code safely
+  const { code } = await params;
 
-  // 1. Find the link [cite: 25]
   const link = await prisma.link.findUnique({
     where: { shortCode: code },
   });
 
-  // 2. If deleted or missing, return 404 [cite: 29, 77]
   if (!link) {
     return new NextResponse("Link not found", { status: 404 });
   }
 
-  // 3. Async: Update stats (Increment clicks & timestamp) [cite: 26, 76]
-  // We do not 'await' this so the redirect is instant for the user.
+  // Update stats without blocking
   prisma.link
     .update({
       where: { id: link.id },
@@ -29,6 +27,5 @@ export async function GET(
     })
     .catch((e) => console.error("Stats update failed", e));
 
-  // 4. Perform 302 Redirect to original URL [cite: 25, 64]
   return NextResponse.redirect(link.originalUrl);
 }
